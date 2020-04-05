@@ -20,9 +20,6 @@ def top_prediction(idx_to_class, probs):
     top_label = probs.argmax()
     return Prediction(label=idx_to_class[top_label], confidence=probs[top_label])
 
-def to_predictions(idx_to_class, probs):
-    return [Prediction(label=idx_to_class[i], confidence=prob) for i, prob in enumerate(probs)]
-
 
 @st.cache(allow_output_mutation=True)
 def load_model(model_name):
@@ -51,17 +48,20 @@ def main():
                 embeddings = facenet(facenet_preprocess(faces)).detach().numpy()
                 predictions = face_recogniser.classifier.predict_proba(embeddings)
                 for bb, probs in zip(bbs, predictions):
-                    cropped_faces = []
-                    cropped_face = image.crop(bb)
-                    cropped_faces.append(cropped_face)
-                    prediction = top_prediction(face_recogniser.idx_to_class, probs)
-                    files = glob.glob("images/" + prediction.label + "/*.jpg")
-                    actor_image = Image.open(files[0])
-                    actor_image_bbs, _ = aligner.detect(actor_image)
-                    actor_image = actor_image.crop(actor_image_bbs[0]) if len(actor_image_bbs) > 0 else actor_image
-                    cropped_faces.append(actor_image)
-                    st.image(cropped_faces, width=100)
-                    st.write(prediction.label)
+                    try:
+                        cropped_faces = []
+                        cropped_face = image.crop(bb)
+                        cropped_faces.append(cropped_face)
+                        prediction = top_prediction(face_recogniser.idx_to_class, probs)
+                        files = glob.glob("images/" + prediction.label + "/*.*")
+                        actor_image = Image.open(files[0])
+                        actor_image_bbs, _ = aligner.detect(actor_image)
+                        actor_image = actor_image.crop(actor_image_bbs[0]) if len(actor_image_bbs) > 0 else actor_image
+                        cropped_faces.append(actor_image)
+                        st.image(cropped_faces, width=100)
+                        st.write(prediction.label)
+                    except:
+                        pass
             else:
                 st.write("Can't detect face")
             st.image(image, caption='Uploaded Image.', use_column_width=True)
