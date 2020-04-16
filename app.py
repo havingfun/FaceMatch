@@ -2,6 +2,9 @@ import streamlit as st
 import joblib
 from PIL import Image
 import glob
+import numpy as np
+import cv2
+from lib import video_processor, youtube_processor
 
 from facenet_pytorch import MTCNN, InceptionResnetV1, prewhiten
 from torchvision import transforms
@@ -27,20 +30,35 @@ def load_model(model_name):
     return face_recogniser
 
 
+@st.cache(allow_output_mutation=True)
+def get_video(url):
+    yvr = youtube_processor.YoutubeVideoReader(url)
+    yvr.download()
+    video = yvr.get_video()
+    return video
+
+@st.cache(allow_output_mutation=True)
+def get_video_processor(video):
+    vpr = video_processor.VideoProcessor(video)
+    return vpr
+
+
 def main():
     """
         Face Matching
     """
     
-    activity = ["CELEB MATCH"]
+    activity = ["CELEB MATCH", "VIDEO SEARCH"]
     choice = st.sidebar.selectbox("Choose Activity",activity)
     
     #CELEB MATCH
     if choice == "CELEB MATCH":
         face_recogniser = load_model('model/face_recogniser.pkl')
+        preprocess = preprocessing.ExifOrientationNormalize()
         uploaded_file = st.file_uploader("Choose an image...", type=["jpg","png", "jpeg"])
         if uploaded_file is not None:
             image = Image.open(uploaded_file)
+            image = preprocess(image)
             image = image.convert("RGB")
             bbs, _ = aligner.detect(image)
             if bbs is not None:
@@ -65,6 +83,22 @@ def main():
             else:
                 st.write("Can't detect face")
             st.image(image, caption='Uploaded Image.', use_column_width=True)
+    elif choice == "VIDEO SEARCH":
+        st.write("Video Search")
+        url = st.text_input("YOUTUBE URL")
+        if url:
+            video = get_video(url)
+            if video:
+                st.video(url)
+                vpr = get_video_processor(video)
+                vpr.read_frames()
+                st.write("Number of frames " + str(vpr.frame_count))
+                st.write("Duration " + str(int(vpr.duration)) + " s")
+                
+                frame_idx = st.number_input("Frame index", value=0, min_value=0, max_value=vpr.frame_count-1)
+                if frame_idx:
+                    frame_image = Image.fromarray(vpr.frames[frame_idx])
+                    st.image(frame_image, caption='Image at selected frame')
     
 if __name__ == "__main__":
     main()
